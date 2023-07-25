@@ -1,2 +1,2 @@
 # qpydoc
-Quarto-base Python API Documentation Tool
+Quarto-based Python API Documentation Tool
