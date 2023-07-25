@@ -1,0 +1,30 @@
+[project]
+name = "qpydoc"
+description = "Quarto-based Python API Documentation Tool"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["quarto", "api", "documentation"]
+authors = [
+  {name = "KIM, Doh-Hyoung"},
+  {email = "kim.dohhyoung@gmail.com"},
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+]
+
+dynamic = ["version"]
+
+[build-system]
+requires = [
+    "setuptools",
+    "setuptools-scm",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
