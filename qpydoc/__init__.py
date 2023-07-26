@@ -115,12 +115,12 @@ def generate_site(
 
     def on_mod(mod: ModuleType, **kwarg: Any):
         prefix = kwarg["prefix"]
-        path = Path(mod.__name__.replace(".", "/"))
+        path = Path("/".join(mod.__name__.split(".")[1:]))
         path_w_prefix = Path(prefix) / path
         if not os.path.exists(path_w_prefix):
             os.mkdir(path_w_prefix)
 
-        with open(path_w_prefix / "init.qmd", "w") as f:
+        with open(path_w_prefix / "index.qmd", "w") as f:
             f.write(f"# {mod.__name__}\n")
             if mod.__doc__ is not None:
                 f.write(mod.__doc__)
@@ -133,10 +133,10 @@ def generate_site(
         - section: "{mod.__name__.split('.')[-1]}"
           contents:
             - text: "MODULE DOC"
-              href: {path}/init.qmd"""), indent_txt)
+              href: {path}/index.qmd"""), indent_txt)
         container["doc_quarto"] = doc_quarto + add_doc
 
-    doc_quarto = dedent("""
+    doc_quarto = dedent(f"""
     project:
       type: website
 
