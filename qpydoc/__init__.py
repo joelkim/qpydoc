@@ -3,6 +3,7 @@ __all__ = [
     "__version__",
     "list_submodules",
     "walk_submodules",
+    "generate_site",
 ]
 
 
@@ -10,10 +11,12 @@ import importlib
 import os
 import pkgutil
 from importlib.metadata import version
+from pathlib import Path
+from textwrap import dedent, indent
 from types import ModuleType
 from typing import Any, Callable, Optional
 
-from mypy_extensions import Arg, KwArg, VarArg
+from mypy_extensions import KwArg
 
 __version__ = version("qpydoc")
 
@@ -63,7 +66,7 @@ def list_submodules(mod_fname: str) -> list[ModuleType]:
 
 def walk_submodules(
     mod_fname: str,
-    walkdata: list[Any] = [],
+    module_tree: list[Any] = [],
     on_mod: Optional[
         Callable[[ModuleType, KwArg()], None]] = None,
     on_submod: Optional[
@@ -73,7 +76,7 @@ def walk_submodules(
     """Yields ModuleInfo for all modules recursively
 
     :param str mod_fname: full name string of parent module
-    :param list[Any] walkdata: list to collect data
+    :param list[Any] module_tree: list to collect module tree data
     :param Optional[Callable[[ModuleType, KwArg()], None]]] on_mod:
         callback for a parent module
     :param Optional[Callable[[ModuleType, ModuleType, KwArg()], None]]] on_submod:
@@ -93,4 +96,58 @@ def walk_submodules(
         walk_submodules(submod_fname, submod_data, on_mod, on_submod, **kwarg)
         sub_walkdata += submod_data
 
-    walkdata.append((mod, sub_walkdata))
+    module_tree.append((mod, sub_walkdata))
+
+
+def generate_site(
+        mod_fname: str,
+        prefix: Optional[str] = None,
+):
+    if prefix is None:
+        prefix = f"{mod_fname}_api"
+
+    path_prefix = Path(prefix)
+    if not os.path.exists(path_prefix):
+        os.mkdir(path_prefix)
+
+    def on_mod(mod: ModuleType, **kwarg: Any):
+        prefix = kwarg["prefix"]
+        path = Path(mod.__name__.replace(".", "/"))
+        path_w_prefix = Path(prefix) / path
+        if not os.path.exists(path_w_prefix):
+            os.mkdir(path_w_prefix)
+
+        with open(path_w_prefix / "init.qmd", "w") as f:
+            f.write(f"# {mod.__name__}\n")
+            if mod.__doc__ is not None:
+                f.write(mod.__doc__)
+
+        container = kwarg.get("container", {})
+        doc_quarto = container.get("doc_quarto", "")
+        level = len(mod.__name__.split("."))
+        indent_txt = " " * 4 * level
+        add_doc = indent(dedent(f"""
+        - section: "{mod.__name__.split('.')[-1]}"
+          contents:
+            - text: "MODULE DOC"
+              href: {path}/init.qmd"""), indent_txt)
+        container["doc_quarto"] = doc_quarto + add_doc
+
+    doc_quarto = dedent("""
+    project:
+      type: website
+
+    website:
+      sidebar:
+        contents:""")
+
+    container = {"doc_quarto": doc_quarto}
+    walk_submodules(
+        mod_fname,
+        on_mod=on_mod,  # type: ignore
+        prefix=prefix,
+        container=container,
+    )
+
+    with open(path_prefix / "_quarto.yml", "w") as f:
+        f.writelines(container["doc_quarto"])
