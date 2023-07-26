@@ -31,24 +31,27 @@ def list_submodules(mod_fname: str) -> list[ModuleType]:
     mod_path = os.path.dirname(mod.__file__)
     mod_info = pkgutil.iter_modules([mod_path], prefix=f"{mod_fname}.")
 
+    submod_fnames = [mi.name for mi in mod_info]
+
     # filter out modules not in __all__
     if "__all__" in mod.__dict__:
-        all_attrs = getattr(mod, "__all__")
-        all_submod_fname = [f"{mod_fname}.{name}" for name in all_attrs]
-        all_submod_info = [
-            mi for mi in mod_info if mi.name in all_submod_fname]
-        all_submod_fname = [mi.name for mi in all_submod_info]
-    else:
-        all_submod_fname = [mi.name for mi in mod_info]
+        all_attrs = getattr(mod, "__all__", [])
+        all_fnames = [f"{mod_fname}.{name}" for name in all_attrs]
+        submod_fnames = [n for n in submod_fnames if n in all_fnames]
+
+    # filter out modules in __exclude_submodule__
+    ex_attrs = getattr(mod, "__exclude_submodule__", [])
+    ex_fnames = [f"{mod_fname}.{name}" for name in ex_attrs]
+    submod_fnames = [n for n in submod_fnames if n not in ex_fnames]
 
     # filter out modules which starts with '_'
     def no_underscore(x):
         return not x.split(".")[-1].startswith("_")
-    all_submod_fname = list(filter(no_underscore, all_submod_fname))
+    submod_fnames = list(filter(no_underscore, submod_fnames))
 
     # get all modules
     all_mod = []
-    for submod_fname in all_submod_fname:
+    for submod_fname in submod_fnames:
         try:
             mod = importlib.import_module(submod_fname)
             all_mod.append(mod)
@@ -58,7 +61,7 @@ def list_submodules(mod_fname: str) -> list[ModuleType]:
     # sort by __module_order__ and name
     num_mod = len(all_mod)
     mod_order = [getattr(mod, "__module_order__", num_mod) for mod in all_mod]
-    sort_data = zip(zip(mod_order, all_submod_fname), all_mod)
+    sort_data = zip(zip(mod_order, submod_fnames), all_mod)
     all_mod = [mod for _, mod in sorted(sort_data)]
 
     return all_mod
