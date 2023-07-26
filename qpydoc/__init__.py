@@ -9,18 +9,20 @@ __all__ = [
 import importlib
 import os
 import pkgutil
-import types
 from importlib.metadata import version
-from typing import Any, Callable
+from types import ModuleType
+from typing import Any, Callable, Optional
+
+from mypy_extensions import Arg, KwArg, VarArg
 
 __version__ = version("qpydoc")
 
 
-def list_submodules(mod_fname: str) -> list[types.ModuleType]:
+def list_submodules(mod_fname: str) -> list[ModuleType]:
     """Yields a list of submodule ModuleInfo
 
     :param str mod_fname: full name string of parent module
-    :return list[types.ModuleType]: list of submodules
+    :return list[ModuleType]: list of submodules
     """
     mod = pkgutil.resolve_name(mod_fname)
     mod_path = os.path.dirname(mod.__file__)
@@ -62,25 +64,33 @@ def list_submodules(mod_fname: str) -> list[types.ModuleType]:
 def walk_submodules(
     mod_fname: str,
     walkdata: list[Any] = [],
-    on_mod: Callable = lambda mod: None,
-    on_submod: Callable = lambda mod, submod: None,
+    on_mod: Optional[
+        Callable[[ModuleType, KwArg()], None]] = None,
+    on_submod: Optional[
+        Callable[[ModuleType, ModuleType, KwArg()], None]] = None,
+    **kwarg: Any
 ):
     """Yields ModuleInfo for all modules recursively
 
     :param str mod_fname: full name string of parent module
     :param list[Any] walkdata: list to collect data
-    :param Callable on_mod: called for a parent module
-    :param Callable on_submod: called for a child module
+    :param Optional[Callable[[ModuleType, KwArg()], None]]] on_mod:
+        callback for a parent module
+    :param Optional[Callable[[ModuleType, ModuleType, KwArg()], None]]] on_submod:
+        callback for a child submodule
+    :param Any **kwarg: keyword arguments of on_mod and on_submod callbacks
     """
     mod = pkgutil.resolve_name(mod_fname)
-    on_mod(mod)
+    if on_mod is not None:
+        on_mod(mod, **kwarg)
 
     sub_walkdata = []
     for submod in list_submodules(mod_fname):
-        on_submod(mod, submod)
+        if on_submod is not None:
+            on_submod(mod, submod, **kwarg)
         submod_fname: str = submod.__name__
         submod_data: list[Any] = []
-        walk_submodules(submod_fname, submod_data, on_mod, on_submod)
+        walk_submodules(submod_fname, submod_data, on_mod, on_submod, **kwarg)
         sub_walkdata += submod_data
 
     walkdata.append((mod, sub_walkdata))
