@@ -121,7 +121,17 @@ def generate_site(
             os.mkdir(path_w_prefix)
 
         with open(path_w_prefix / "index.qmd", "w") as f:
-            f.write(f"# {mod.__name__}\n")
+            # set title
+            name_list = mod.__name__.split(".")
+            len_name: int = len(name_list)
+            title: str = ""
+            for i, n in enumerate(name_list):
+                middle = "../" * (len_name - i - 1)
+                pre_dot = "" if i == 0 else "."
+                title += f"{pre_dot}[{n}](./{middle}index.qmd)"
+
+            f.write("# " + title + "\n\n")
+
             if mod.__doc__ is not None:
                 f.write(mod.__doc__)
 
@@ -136,7 +146,7 @@ def generate_site(
               href: {path}/index.qmd"""), indent_txt)
         container["doc_quarto"] = doc_quarto + add_doc
 
-    doc_quarto = dedent(f"""
+    doc_quarto = dedent("""
     project:
       type: website
 
