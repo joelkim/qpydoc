@@ -22,7 +22,7 @@ __version__ = version("qpydoc")
 
 
 def list_submodules(mod_fname: str) -> list[ModuleType]:
-    """Yields a list of submodule ModuleInfo
+    """Yield a list of submodule ModuleInfo
 
     :param str mod_fname: full name string of parent module
     :return list[ModuleType]: list of submodules
@@ -76,7 +76,7 @@ def walk_submodules(
         Callable[[ModuleType, ModuleType, KwArg()], None]] = None,
     **kwarg: Any
 ):
-    """Yields ModuleInfo for all modules recursively
+    """Yield ModuleInfo for all modules recursively
 
     :param str mod_fname: full name string of parent module
     :param list[Any] module_tree: list to collect module tree data
@@ -102,10 +102,24 @@ def walk_submodules(
     module_tree.append((mod, sub_walkdata))
 
 
+def process_doc(doc: str) -> str:
+    """Process docstring
+
+    :param str doc: docstring
+    :return str: converted docstring
+    """
+    return doc
+
+
 def generate_site(
         mod_fname: str,
         prefix: Optional[str] = None,
 ):
+    """Generate Quarto website project
+
+    :param str mod_fname: package name
+    :param Optional[str] prefix: project directory name. default to f"{mod_fname}_api"
+    """
     if prefix is None:
         prefix = f"{mod_fname}_api"
 
@@ -121,7 +135,7 @@ def generate_site(
             os.mkdir(path_w_prefix)
 
         with open(path_w_prefix / "index.qmd", "w") as f:
-            # set title
+            # set docstring title
             name_list = mod.__name__.split(".")
             len_name: int = len(name_list)
             title: str = ""
@@ -132,8 +146,10 @@ def generate_site(
 
             f.write("# " + title + "\n\n")
 
+            # set docstring content
             if mod.__doc__ is not None:
-                f.write(mod.__doc__)
+                doc = process_doc(mod.__doc__)
+                f.write(doc)
 
         container = kwarg.get("container", {})
         doc_quarto = container.get("doc_quarto", "")
