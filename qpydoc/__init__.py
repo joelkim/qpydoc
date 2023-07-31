@@ -17,6 +17,7 @@ from pathlib import Path
 from textwrap import dedent, indent
 from types import ModuleType
 from typing import Any, Callable, Optional
+from unicodedata import east_asian_width
 
 from mypy_extensions import KwArg
 
@@ -138,6 +139,21 @@ def process_doc(doc: str) -> str:
     return processed_doc
 
 
+def calc_eastasian_width(txt: str) -> int:
+    """calcalate width of east asian string
+
+    :param str txt: east asian string
+    :return int: width of east asian string
+    """
+    len_str = 0
+    for ch in txt:
+        if east_asian_width(ch) in ["W", "F"]:
+            len_str += 2
+        else:
+            len_str += 1
+    return len_str
+
+
 def generate_site(
         mod_fname: str,
         prefix: Optional[str] = None,
@@ -155,12 +171,35 @@ def generate_site(
         os.mkdir(path_prefix)
 
     def on_mod(mod: ModuleType, **kwarg: Any):
+        # create directory
         prefix = kwarg["prefix"]
         path = Path("/".join(mod.__name__.split(".")[1:]))
         path_w_prefix = Path(prefix) / path
         if not os.path.exists(path_w_prefix):
             os.mkdir(path_w_prefix)
 
+        # get function list
+        max_fname = 0
+        max_fshortdoc = 0
+        all_funcs = []
+        for fname in getattr(mod, "__all__", []):
+            func = getattr(mod, fname, None)
+            if callable(func):
+                fdocs = getattr(func, "__doc__")
+                if fdocs is None:
+                    fshortdoc = fname
+                else:
+                    fshortdoc = fdocs.split("\n")[0]
+
+                max_fname = max(max_fname, len(fname))
+                len_fshortdoc = calc_eastasian_width(fshortdoc)
+                max_fshortdoc = max(max_fshortdoc, len_fshortdoc)
+
+                all_funcs.append((func, fname, fshortdoc))
+
+        max_fname += 2
+
+        # create index file
         with open(path_w_prefix / "index.qmd", "w") as f:
             # set docstring title
             name_list = mod.__name__.split(".")
@@ -171,12 +210,31 @@ def generate_site(
                 pre_dot = "" if i == 0 else "."
                 title += f"{pre_dot}[{n}](./{middle}index.qmd)"
 
-            f.write("# " + title + "\n\n")
+            f.write(f"# {title}\n\n")
 
             # set docstring content
             if mod.__doc__ is not None:
                 doc = process_doc(mod.__doc__)
                 f.write(doc)
+
+            # append function list
+            if len(all_funcs) > 0:
+                f.write("### function list\n\n")
+                f.write(
+                    f"| {'name':{max_fname}} "
+                    f"| {'comment':{max_fshortdoc}} |\n"
+                )
+                f.write(
+                    f"|:{'-' * max_fname}-"
+                    f"|:{'-' * max_fshortdoc}-|\n"
+                )
+                for _, fname, fshortdoc in all_funcs:
+                    len_sp = max_fshortdoc - calc_eastasian_width(fshortdoc)
+                    f.write(
+                        f"| {'`' + fname + '`':{max_fname}} "
+                        f"| {fshortdoc + ' ' * len_sp} |\n"
+                    )
+                f.write("\n")
 
         container = kwarg.get("container", {})
         doc_quarto = container.get("doc_quarto", "")
