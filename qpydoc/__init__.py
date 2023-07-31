@@ -71,9 +71,9 @@ def walk_submodules(
     mod_fname: str,
     module_tree: list[Any] = [],
     on_mod: Optional[
-        Callable[[ModuleType, KwArg()], None]] = None,
+        Callable[[ModuleType, KwArg()], None]] = None,  # type: ignore
     on_submod: Optional[
-        Callable[[ModuleType, ModuleType, KwArg()], None]] = None,
+        Callable[[ModuleType, ModuleType, KwArg()], None]] = None,  # type: ignore
     **kwarg: Any
 ):
     """Yield ModuleInfo for all modules recursively
@@ -88,12 +88,12 @@ def walk_submodules(
     """
     mod = pkgutil.resolve_name(mod_fname)
     if on_mod is not None:
-        on_mod(mod, **kwarg)
+        on_mod(mod, **kwarg)  # type: ignore
 
     sub_walkdata = []
     for submod in list_submodules(mod_fname):
         if on_submod is not None:
-            on_submod(mod, submod, **kwarg)
+            on_submod(mod, submod, **kwarg)  # type: ignore
         submod_fname: str = submod.__name__
         submod_data: list[Any] = []
         walk_submodules(submod_fname, submod_data, on_mod, on_submod, **kwarg)
@@ -165,7 +165,8 @@ def generate_site(
     doc_quarto = dedent("""
     project:
       type: website
-
+    execute:
+      echo: true
     website:
       sidebar:
         contents:""")
