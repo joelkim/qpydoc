@@ -10,6 +10,8 @@ __all__ = [
 import importlib
 import os
 import pkgutil
+import re
+from copy import copy
 from importlib.metadata import version
 from pathlib import Path
 from textwrap import dedent, indent
@@ -108,7 +110,32 @@ def process_doc(doc: str) -> str:
     :param str doc: docstring
     :return str: converted docstring
     """
-    return doc
+    pattern_doctest = re.compile(
+        r"^(?P<indent>[ \t]*)>>> \S+.*"
+        r"(?:\n(?P=indent)\.\.\.\s+.*$)*"
+        r"(?P<output>\n(?P=indent)[^\.>]+.*(?=(?:[ \t]*\n){2,}))*",
+        flags=re.M)
+
+    processed_doc = copy(doc)
+    for m in pattern_doctest.finditer(doc):
+        indent_str = m.groupdict()["indent"]
+        org_code = m.group()
+
+        # remove output
+        output = m.groupdict().get("output")
+        if output is not None:
+            processed_doc = processed_doc.replace(output.strip(), "")
+            org_code = org_code.replace(output.strip(), "")
+
+        # remove >>> and ...
+        code_str = org_code.replace(">>> ", "").replace("... ", "")
+
+        # convert to fenced code
+        fenced_code = indent_str + \
+            "```{python}\n" + code_str + "\n" + indent_str + "```"
+        processed_doc = processed_doc.replace(org_code, fenced_code)
+
+    return processed_doc
 
 
 def generate_site(
