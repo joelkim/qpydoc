@@ -13,7 +13,7 @@ import pkgutil
 import re
 from copy import copy
 from importlib.metadata import version
-from inspect import cleandoc
+from inspect import cleandoc, signature
 from pathlib import Path
 from textwrap import dedent, indent
 from types import ModuleType
@@ -106,73 +106,81 @@ def walk_submodules(
     module_tree.append((mod, sub_walkdata))
 
 
-def process_doc(doc: str) -> str:
-    """Process docstring
+def process_doctest(doc: str) -> str:
+    processed_doc = copy(doc)
 
-    :param str doc: docstring
-    :return str: converted docstring
-    """
-    processed_doc = cleandoc(doc)
+    pattern_doctest = re.compile(
+        r"(?P<code>^(?P<indent>[ \t]*)>>> \S+.*(\n(?P=indent)\.\.\.\s+.*$)*)"
+        r"(?P<output>(\n(?P=indent)(?!>>>)+.*$|\n(?!\n\n))*)",
+        flags=re.MULTILINE)
 
-    def process_doctest(doc: str) -> str:
-        processed_doc = copy(doc)
+    for m in pattern_doctest.finditer(doc):
+        indent_str = m.groupdict()["indent"]
+        org_code = str(m.groupdict().get("code", ""))
 
-        pattern_doctest = re.compile(
-            r"(?P<code>^(?P<indent>[ \t]*)>>> \S+.*(\n(?P=indent)\.\.\.\s+.*$)*)"
-            r"(?P<output>(\n(?P=indent)(?!>>>)+.*$|\n(?!\n\n))*)",
-            flags=re.MULTILINE)
+        # remove output
+        output = m.groupdict().get("output")
+        if output is not None:
+            processed_doc = processed_doc.replace(output.strip(), "")
+            org_code = org_code.replace(output.strip(), "")
 
-        for m in pattern_doctest.finditer(doc):
-            indent_str = m.groupdict()["indent"]
-            org_code = str(m.groupdict().get("code", ""))
+        # remove >>> and ...
+        code_str = org_code.replace(">>> ", "").replace("... ", "")
 
-            # remove output
-            output = m.groupdict().get("output")
-            if output is not None:
-                processed_doc = processed_doc.replace(output.strip(), "")
-                org_code = org_code.replace(output.strip(), "")
+        # convert to fenced code
+        fenced_code = indent_str + \
+            "```{python}\n" + code_str + "\n" + indent_str + "```"
+        processed_doc = processed_doc.replace(org_code, fenced_code)
 
-            # remove >>> and ...
-            code_str = org_code.replace(">>> ", "").replace("... ", "")
+    return processed_doc
 
-            # convert to fenced code
-            fenced_code = indent_str + \
-                "```{python}\n" + code_str + "\n" + indent_str + "```"
-            processed_doc = processed_doc.replace(org_code, fenced_code)
 
-        return processed_doc
+def process_rst_args(doc: str, func: Callable) -> str:
+    processed_doc = copy(doc)
 
-    processed_doc = process_doctest(processed_doc)
+    # process spaces in Literal brackets
+    m = re.search(r"Literal\[[^\]]*?\]", processed_doc)
+    if m is not None:
+        org_str = m.group()
+        rep_str = org_str.replace(" ", "")
+        processed_doc = processed_doc.replace(org_str, rep_str)
 
-    def process_rst_args(doc: str) -> str:
-        processed_doc = copy(doc)
+    # prcess params
+    m = re.search(
+        r"^[ \t]*:(param|return|raises)\s+.*:",
+        processed_doc, flags=re.MULTILINE
+    )
+
+    if m is not None:
+        sig = func.__name__ + str(signature(func))
+        idx = m.start()
+        processed_doc = \
+            processed_doc[:idx] + \
+            f"\n\n```\n{sig}\n```\n\n" + \
+            processed_doc[idx:]
 
         def repl(m):
             d = m.groupdict()
             indent = d.get("indent", "")
-            comment = d.get("comment", "")
+            arg_comment = d.get("comment", "")
+            arg_name = d.get("name", "")
+            arg_type = d.get("type", "")
 
             field_type = d.get("field_type", "")
             if field_type == "param":
-                field_title = "PARAM"
+                return f"{indent}- {arg_type} {arg_name}:{arg_comment}"
             elif field_type == "return":
-                field_title = "RETURN"
+                return f"{indent}- RETURN {arg_type}:{arg_comment}"
             elif field_type == "raises":
-                field_title = "RETURN"
+                return f"{indent}- RAISE {arg_type}:{arg_comment}"
             else:
-                field_title = "field_title"
-
-            return f"{indent}- {field_title}:{comment}"
+                return ""
 
         processed_doc = re.sub(
             r"^(?P<indent>[ \t]*):"
             r"(?P<field_type>param|return|raises)\s+"
-            r"(?P<type>\S+)(\s+(?P<name>\S+))?\s*:(?P<comment>.*)$",
+            r"(?P<type>\S+)(\s+(?P<name>\S+))?:(?P<comment>.*)$",
             repl, processed_doc, flags=re.MULTILINE)
-
-        return processed_doc
-
-    processed_doc = process_rst_args(processed_doc)
 
     return processed_doc
 
@@ -258,7 +266,9 @@ def generate_site(
 
             # set module content
             if mod.__doc__ is not None:
-                f_mod.write(process_doc(mod.__doc__))
+                doc = cleandoc(mod.__doc__)
+                doc = process_doctest(doc)
+                f_mod.write(doc)
 
             # append function list
             if len(all_funcs) > 0:
@@ -314,7 +324,10 @@ def generate_site(
 
                     # set function content
                     if func.__doc__ is not None:
-                        f_func.write(process_doc(func.__doc__))
+                        doc = cleandoc(func.__doc__)
+                        doc = process_doctest(doc)
+                        doc = process_rst_args(doc, func)
+                        f_func.write(doc)
 
             container["doc_quarto"] = container["doc_quarto"] + func_doc
 
