@@ -139,7 +139,7 @@ def process_rst_args(doc: str, func: Callable) -> str:
     processed_doc = copy(doc)
 
     # process spaces in Literal brackets
-    m = re.search(r"Literal\[[^\]]*?\]", processed_doc)
+    m = re.search(r"(list|tuple|Literal|Union|Optional)\[.*?\]", processed_doc)
     if m is not None:
         org_str = m.group()
         rep_str = org_str.replace(" ", "")
