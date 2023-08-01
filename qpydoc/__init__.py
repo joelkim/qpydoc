@@ -12,6 +12,7 @@ import os
 import pkgutil
 import re
 from copy import copy
+from gettext import translation
 from importlib.metadata import version
 from inspect import cleandoc, signature
 from pathlib import Path
@@ -156,7 +157,9 @@ def process_rst_args(doc: str, func: Callable) -> str:
         idx = m.start()
         processed_doc = \
             processed_doc[:idx] + \
-            f"\n\n```\n{sig}\n```\n\n" + \
+            '\n::: {.callout-note appearance="minimal"}\n' + \
+            f"```\n{sig}\n```" + \
+            '\n:::\n\n' + \
             processed_doc[idx:]
 
         def repl(m):
@@ -203,12 +206,18 @@ def calc_eastasian_width(txt: str) -> int:
 def generate_site(
         mod_fname: str,
         prefix: Optional[str] = None,
+        locale: Optional[str] = None,
 ):
     """Generate Quarto website project
 
     :param str mod_fname: package name
     :param Optional[str] prefix: project directory name. default to f"{mod_fname}_api"
     """
+    if locale is None:
+        locale = "en_US"
+    localedir = Path(os.path.dirname(os.path.abspath(__file__))) / "locales"
+    i18n = translation("messages", localedir=localedir, languages=[locale])
+
     if prefix is None:
         prefix = f"{mod_fname}_api"
 
@@ -272,10 +281,13 @@ def generate_site(
 
             # append function list
             if len(all_funcs) > 0:
-                f_mod.write("### function list\n\n")
+                i18n_function_list = i18n.gettext("function list")
+                f_mod.write(f"### {i18n_function_list}\n\n")
+                i18n_function_name = i18n.gettext("function name")
+                i18n_function_comment = i18n.gettext("function comment")
                 f_mod.write(
-                    f"| {'name':{max_fname}} "
-                    f"| {'comment':{max_fshortdoc}} |\n"
+                    f"| {i18n_function_name:{max_fname}} "
+                    f"| {i18n_function_comment:{max_fshortdoc}} |\n"
                 )
                 f_mod.write(
                     f"|:{'-' * max_fname}-"
@@ -293,18 +305,20 @@ def generate_site(
         doc_quarto = container.get("doc_quarto", "")
 
         mod_doc_indent = " " * 4 * len_mod_name
+        i18n_module_doc = i18n.gettext("MODULE DOC")
         mod_doc = indent(dedent(f"""
-        - section: "{mod_name.split('.')[-1]}"
+        - section: "{mod_name}"
           contents:
-            - text: "MODULE DOC"
+            - text: "{i18n_module_doc}"
               href: {mod_filepath_wo_prefix}"""), mod_doc_indent)
 
         container["doc_quarto"] = doc_quarto + mod_doc
 
         if len(all_funcs) > 0:
             func_sect_indent = mod_doc_indent + " " * 4
-            func_doc = indent(dedent("""
-            - section: FUNCTIONS
+            i18n_functions = i18n.gettext("FUNCTIONS")
+            func_doc = indent(dedent(f"""
+            - section: "{i18n_functions}"
               contents:"""), func_sect_indent)
 
             for func, fname, fshortdoc in all_funcs:
