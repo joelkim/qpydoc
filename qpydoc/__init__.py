@@ -6,7 +6,6 @@ __all__ = [
     "generate_site",
 ]
 
-
 import importlib
 import os
 import pkgutil
@@ -14,16 +13,19 @@ import re
 from copy import copy
 from gettext import translation
 from importlib.metadata import version
-from inspect import cleandoc, signature
+from inspect import _empty, cleandoc, signature
 from pathlib import Path
 from textwrap import dedent, indent
 from types import ModuleType
 from typing import Any, Callable, Optional
 from unicodedata import east_asian_width
 
+from autopep8 import fix_code
 from mypy_extensions import KwArg
 
 __version__ = version("qpydoc")
+
+i18n: Any
 
 
 def list_submodules(mod_fname: str) -> list[ModuleType]:
@@ -153,13 +155,29 @@ def process_rst_args(doc: str, func: Callable) -> str:
     )
 
     if m is not None:
-        sig = func.__name__ + str(signature(func))
+        sig = signature(func)
+        sig_str = func.__name__
+
+        if len(sig.parameters) > 0:
+            sig_str += "(\n"
+            for v in sig.parameters.values():
+                sig_str += f"    {v},\n"
+            sig_str += ")"
+        else:
+            sig_str += "()"
+
+        if sig.return_annotation is not _empty:
+            ret_type = str(sig.return_annotation)
+            ret_type = ret_type.lstrip("<class '").rstrip("'>")
+            sig_str += f" -> {ret_type}\n"
+        else:
+            sig_str += "\n"
+
+        sig_str = fix_code(sig_str)
         idx = m.start()
         processed_doc = \
             processed_doc[:idx] + \
-            '\n::: {.callout-note appearance="minimal"}\n' + \
-            f"```\n{sig}\n```" + \
-            '\n:::\n\n' + \
+            f"\n```python\n{sig_str}```\n" + \
             processed_doc[idx:]
 
         def repl(m):
@@ -169,13 +187,17 @@ def process_rst_args(doc: str, func: Callable) -> str:
             arg_name = d.get("name", "")
             arg_type = d.get("type", "")
 
+            global i18n
+            i18n_return = i18n.gettext("RETURN")
+            i18n_raise = i18n.gettext("RAISE")
+
             field_type = d.get("field_type", "")
             if field_type == "param":
-                return f"{indent}- {arg_type} {arg_name}:{arg_comment}"
+                return f"{indent}- `{arg_name}` (`{arg_type}`):{arg_comment}"
             elif field_type == "return":
-                return f"{indent}- RETURN {arg_type}:{arg_comment}"
+                return f"{indent}- {i18n_return} (`{arg_type}`):{arg_comment}"
             elif field_type == "raises":
-                return f"{indent}- RAISE {arg_type}:{arg_comment}"
+                return f"{indent}- {i18n_raise} (`{arg_type})`:{arg_comment}"
             else:
                 return ""
 
@@ -207,16 +229,24 @@ def generate_site(
         mod_fname: str,
         prefix: Optional[str] = None,
         locale: Optional[str] = None,
+        sidebar_width: Optional[str] = None,
 ):
     """Generate Quarto website project
 
     :param str mod_fname: package name
     :param Optional[str] prefix: project directory name. default to f"{mod_fname}_api"
+    :param Optional[str] locale: locale. default to "en_US"
+    :param Optional[str] sidebar_width: sidebar width. default to "350px"
     """
     if locale is None:
         locale = "en_US"
     localedir = Path(os.path.dirname(os.path.abspath(__file__))) / "locales"
+
+    global i18n
     i18n = translation("messages", localedir=localedir, languages=[locale])
+
+    if sidebar_width is None:
+        sidebar_width = "350px"
 
     if prefix is None:
         prefix = f"{mod_fname}_api"
@@ -282,7 +312,7 @@ def generate_site(
             # append function list
             if len(all_funcs) > 0:
                 i18n_function_list = i18n.gettext("function list")
-                f_mod.write(f"### {i18n_function_list}\n\n")
+                f_mod.write(f"\n\n### {i18n_function_list}\n\n")
                 i18n_function_name = i18n.gettext("function name")
                 i18n_function_comment = i18n.gettext("function comment")
                 f_mod.write(
@@ -346,11 +376,15 @@ def generate_site(
             container["doc_quarto"] = container["doc_quarto"] + func_doc
 
     # create _quarto content
-    doc_quarto = dedent("""
+    doc_quarto = dedent(f"""
     project:
       type: website
     execute:
       echo: true
+    format:
+      html:
+        grid:
+          sidebar-width: {sidebar_width}
     website:
       sidebar:
         contents:""")
