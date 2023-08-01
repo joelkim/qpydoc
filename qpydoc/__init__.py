@@ -117,9 +117,12 @@ def process_doctest(doc: str) -> str:
         r"(?P<output>(\n(?P=indent)(?!>>>)+.*$|\n(?!\n\n))*)",
         flags=re.MULTILINE)
 
-    for m in pattern_doctest.finditer(doc):
+    for m in pattern_doctest.finditer(processed_doc):
+        if not processed_doc.endswith("\n"):
+            processed_doc += "\n"
+
         indent_str = m.groupdict()["indent"]
-        org_code = str(m.groupdict().get("code", ""))
+        org_code = str(m.groupdict().get("code", "")) + "\n"
 
         # remove output
         output = m.groupdict().get("output")
@@ -132,7 +135,7 @@ def process_doctest(doc: str) -> str:
 
         # convert to fenced code
         fenced_code = indent_str + \
-            "```{python}\n" + code_str + "\n" + indent_str + "```"
+            "```{python}\n" + code_str + indent_str + "```" + "\n"
         processed_doc = processed_doc.replace(org_code, fenced_code)
 
     return processed_doc
@@ -385,6 +388,16 @@ def generate_site(
       html:
         grid:
           sidebar-width: {sidebar_width}
+        include-in-header:
+          text: |
+            <style>
+                main.content h1 {{
+                    word-wrap: break-word;
+                }}
+                main.content h1 a {{
+                    text-decoration: none;
+                }}
+            </style>
     website:
       sidebar:
         contents:""")
