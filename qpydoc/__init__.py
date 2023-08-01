@@ -13,6 +13,7 @@ import pkgutil
 import re
 from copy import copy
 from importlib.metadata import version
+from inspect import cleandoc
 from pathlib import Path
 from textwrap import dedent, indent
 from types import ModuleType
@@ -111,30 +112,67 @@ def process_doc(doc: str) -> str:
     :param str doc: docstring
     :return str: converted docstring
     """
-    pattern_doctest = re.compile(
-        r"^(?P<indent>[ \t]*)>>> \S+.*"
-        r"(?:\n(?P=indent)\.\.\.\s+.*$)*"
-        r"(?P<output>\n(?P=indent)[^\.>]+.*(?=(?:[ \t]*\n){2,}))*",
-        flags=re.M)
+    processed_doc = cleandoc(doc)
 
-    processed_doc = copy(doc)
-    for m in pattern_doctest.finditer(doc):
-        indent_str = m.groupdict()["indent"]
-        org_code = m.group()
+    def process_doctest(doc: str) -> str:
+        processed_doc = copy(doc)
 
-        # remove output
-        output = m.groupdict().get("output")
-        if output is not None:
-            processed_doc = processed_doc.replace(output.strip(), "")
-            org_code = org_code.replace(output.strip(), "")
+        pattern_doctest = re.compile(
+            r"(?P<code>^(?P<indent>[ \t]*)>>> \S+.*(\n(?P=indent)\.\.\.\s+.*$)*)"
+            r"(?P<output>(\n(?P=indent)(?!>>>)+.*$|\n(?!\n\n))*)",
+            flags=re.MULTILINE)
 
-        # remove >>> and ...
-        code_str = org_code.replace(">>> ", "").replace("... ", "")
+        for m in pattern_doctest.finditer(doc):
+            indent_str = m.groupdict()["indent"]
+            org_code = str(m.groupdict().get("code", ""))
 
-        # convert to fenced code
-        fenced_code = indent_str + \
-            "```{python}\n" + code_str + "\n" + indent_str + "```"
-        processed_doc = processed_doc.replace(org_code, fenced_code)
+            # remove output
+            output = m.groupdict().get("output")
+            if output is not None:
+                processed_doc = processed_doc.replace(output.strip(), "")
+                org_code = org_code.replace(output.strip(), "")
+
+            # remove >>> and ...
+            code_str = org_code.replace(">>> ", "").replace("... ", "")
+
+            # convert to fenced code
+            fenced_code = indent_str + \
+                "```{python}\n" + code_str + "\n" + indent_str + "```"
+            processed_doc = processed_doc.replace(org_code, fenced_code)
+
+        return processed_doc
+
+    processed_doc = process_doctest(processed_doc)
+
+    def process_rst_args(doc: str) -> str:
+        processed_doc = copy(doc)
+
+        def repl(m):
+            d = m.groupdict()
+            indent = d.get("indent", "")
+            comment = d.get("comment", "")
+
+            field_type = d.get("field_type", "")
+            if field_type == "param":
+                field_title = "PARAM"
+            elif field_type == "return":
+                field_title = "RETURN"
+            elif field_type == "raises":
+                field_title = "RETURN"
+            else:
+                field_title = "field_title"
+
+            return f"{indent}- {field_title}:{comment}"
+
+        processed_doc = re.sub(
+            r"^(?P<indent>[ \t]*):"
+            r"(?P<field_type>param|return|raises)\s+"
+            r"(?P<type>\S+)(\s+(?P<name>\S+))?\s*:(?P<comment>.*)$",
+            repl, processed_doc, flags=re.MULTILINE)
+
+        return processed_doc
+
+    processed_doc = process_rst_args(processed_doc)
 
     return processed_doc
 
@@ -171,12 +209,16 @@ def generate_site(
         os.mkdir(path_prefix)
 
     def on_mod(mod: ModuleType, **kwarg: Any):
+        mod_name = mod.__name__
+        mod_name_list = mod_name.split(".")
+        len_mod_name = len(mod_name_list)
+        mod_path = Path("/".join(mod_name_list[1:]))
+
         # create directory
         prefix = kwarg["prefix"]
-        path = Path("/".join(mod.__name__.split(".")[1:]))
-        path_w_prefix = Path(prefix) / path
-        if not os.path.exists(path_w_prefix):
-            os.mkdir(path_w_prefix)
+        dir_path = Path(prefix) / mod_path
+        if not os.path.exists(dir_path):
+            os.mkdir(dir_path)
 
         # get function list
         max_fname = 0
@@ -200,53 +242,83 @@ def generate_site(
         max_fname += 2
 
         # create index file
-        with open(path_w_prefix / "index.qmd", "w") as f:
-            # set docstring title
-            name_list = mod.__name__.split(".")
-            len_name: int = len(name_list)
-            title: str = ""
-            for i, n in enumerate(name_list):
-                middle = "../" * (len_name - i - 1)
+        mod_filename = "index.qmd"
+        mod_filepath = dir_path / mod_filename
+        mod_filepath_wo_prefix = mod_path / mod_filename
+
+        with open(mod_filepath, "w") as f_mod:
+            # set module title
+            mod_title: str = ""
+            for i, n in enumerate(mod_name_list):
+                middle = "../" * (len_mod_name - i - 1)
                 pre_dot = "" if i == 0 else "."
-                title += f"{pre_dot}[{n}](./{middle}index.qmd)"
+                mod_title += f"{pre_dot}[{n}](./{middle}{mod_filename})"
 
-            f.write(f"# {title}\n\n")
+            f_mod.write(f"# {mod_title}\n\n")
 
-            # set docstring content
+            # set module content
             if mod.__doc__ is not None:
-                doc = process_doc(mod.__doc__)
-                f.write(doc)
+                f_mod.write(process_doc(mod.__doc__))
 
             # append function list
             if len(all_funcs) > 0:
-                f.write("### function list\n\n")
-                f.write(
+                f_mod.write("### function list\n\n")
+                f_mod.write(
                     f"| {'name':{max_fname}} "
                     f"| {'comment':{max_fshortdoc}} |\n"
                 )
-                f.write(
+                f_mod.write(
                     f"|:{'-' * max_fname}-"
                     f"|:{'-' * max_fshortdoc}-|\n"
                 )
                 for _, fname, fshortdoc in all_funcs:
                     len_sp = max_fshortdoc - calc_eastasian_width(fshortdoc)
-                    f.write(
+                    f_mod.write(
                         f"| {'`' + fname + '`':{max_fname}} "
                         f"| {fshortdoc + ' ' * len_sp} |\n"
                     )
-                f.write("\n")
+                f_mod.write("\n")
 
         container = kwarg.get("container", {})
         doc_quarto = container.get("doc_quarto", "")
-        level = len(mod.__name__.split("."))
-        indent_txt = " " * 4 * level
-        add_doc = indent(dedent(f"""
-        - section: "{mod.__name__.split('.')[-1]}"
+
+        mod_doc_indent = " " * 4 * len_mod_name
+        mod_doc = indent(dedent(f"""
+        - section: "{mod_name.split('.')[-1]}"
           contents:
             - text: "MODULE DOC"
-              href: {path}/index.qmd"""), indent_txt)
-        container["doc_quarto"] = doc_quarto + add_doc
+              href: {mod_filepath_wo_prefix}"""), mod_doc_indent)
 
+        container["doc_quarto"] = doc_quarto + mod_doc
+
+        if len(all_funcs) > 0:
+            func_sect_indent = mod_doc_indent + " " * 4
+            func_doc = indent(dedent("""
+            - section: FUNCTIONS
+              contents:"""), func_sect_indent)
+
+            for func, fname, fshortdoc in all_funcs:
+                func_filename = f"{fname}.qmd"
+                func_filepath = dir_path / func_filename
+                func_filepath_wo_prefix = mod_path / func_filename
+
+                func_indent = func_sect_indent + " " * 2
+                func_doc += indent(dedent(f"""
+                - text: {fname}
+                  href: {func_filepath_wo_prefix}"""), func_indent)
+
+                with open(func_filepath, "w") as f_func:
+                    # set function title
+                    func_title = mod_title + f".[{fname}](./{func_filename})"
+                    f_func.write(f"# {func_title}\n\n")
+
+                    # set function content
+                    if func.__doc__ is not None:
+                        f_func.write(process_doc(func.__doc__))
+
+            container["doc_quarto"] = container["doc_quarto"] + func_doc
+
+    # create _quarto content
     doc_quarto = dedent("""
     project:
       type: website
