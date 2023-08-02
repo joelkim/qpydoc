@@ -293,7 +293,7 @@ def calc_eastasian_width(txt: str) -> int:
 
 
 def generate_site(
-        mod_fname: str,
+        pkg_name: str,
         locale: Optional[str] = None,
         sidebar_width: Optional[str] = None,
         prefix: Optional[str] = None,
@@ -301,12 +301,14 @@ def generate_site(
 ):
     """Generate Quarto website project
 
-    :param str mod_fname: package name
-    :param Optional[str] prefix: project directory name. default to f"{mod_fname}_api"
+    :param str pkg_name: package name
+    :param Optional[str] prefix: project directory name. default to f"{pkg_name}_api"
     :param Optional[str] locale: locale. default to "en_US"
     :param Optional[str] sidebar_width: sidebar width. default to "350px"
     :param Optional[str] favicon: favicon path
     """
+    preamble = dedent(f'\n---\ntitle: "{pkg_name} API document"\n---\n')
+
     if locale is None:
         locale = "en_US"
 
@@ -318,7 +320,7 @@ def generate_site(
         sidebar_width = "350px"
 
     if prefix is None:
-        prefix = f"{mod_fname}_api"
+        prefix = f"{pkg_name}_api"
 
     path_prefix = Path(prefix)
     if not os.path.exists(path_prefix):
@@ -370,6 +372,9 @@ def generate_site(
         mod_filepath_wo_prefix = mod_path / mod_filename
 
         with open(mod_filepath, "w") as f_mod:
+            # set preamble
+            f_mod.write(preamble)
+
             # set module title
             mod_title: str = ""
             for i, n in enumerate(mod_name_list):
@@ -447,6 +452,9 @@ def generate_site(
                   href: {func_filepath_wo_prefix}"""), func_indent)
 
                 with open(func_filepath, "w") as f_func:
+                    # set preamble
+                    f_func.write(preamble)
+
                     # set function title
                     func_title = f"[{fname}](./{func_filename})"
                     f_func.write(f"# {func_title}\n\n")
@@ -492,7 +500,7 @@ def generate_site(
 
     container = {"doc_quarto": doc_quarto}
     walk_submodules(
-        mod_fname,
+        pkg_name,
         on_mod=on_mod,  # type: ignore
         prefix=prefix,
         container=container,
@@ -558,7 +566,7 @@ def cli():
     opts = parser.parse_args()
 
     generate_site(
-        mod_fname=opts.package,
+        pkg_name=opts.package,
         locale=opts.locale,
         sidebar_width=opts.sidebar,
         prefix=opts.prefix,
