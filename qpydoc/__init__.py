@@ -505,6 +505,7 @@ def generate_site(
 def cli():
     """Command-line entry point
 
+    ```
     $ qpydoc -h
     usage: qpydoc [-h] [-l LOCALE] [-s SIDEBAR] [-p PREFIX] [-f FAVICON] package
 
@@ -521,6 +522,7 @@ def cli():
                           prefix directory
     -f FAVICON, --favicon FAVICON
                           favicon file
+    ```
 
     """
     parser = argparse.ArgumentParser()
