@@ -253,7 +253,7 @@ def process_rst_args(doc: str, func: Callable) -> str:
             indent = d.get("indent", "")
             arg_comment = d.get("comment", "")
             arg_name = d.get("name", "")
-            arg_type = d.get("type", "")
+            arg_type = fix_code(d.get("type", ""))
 
             i18n_return = _("RETURN")
             i18n_raise = _("RAISE")
