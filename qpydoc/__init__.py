@@ -372,6 +372,10 @@ def generate_site(
                 doc = cleandoc(mod.__doc__)
                 doc = process_doctest(doc)
                 doc = process_module_link(doc, mod)
+
+                # add a dummy code to fix Quarto bug (title w/wo code cell)
+                doc += "\n\n```{python}\n#| echo: false\n```\n\n"
+
                 f_mod.write(doc)
 
             # append function list
