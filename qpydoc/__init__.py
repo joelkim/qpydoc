@@ -25,7 +25,10 @@ from mypy_extensions import KwArg
 
 __version__ = version("qpydoc")
 
-i18n: Any
+
+localedir = Path(os.path.dirname(os.path.abspath(__file__))) / "locales"
+i18n = translation("messages", localedir=localedir, languages=["en_US"])
+_: Callable = i18n.gettext
 
 
 def list_submodules(mod_fname: str) -> list[ModuleType]:
@@ -69,7 +72,7 @@ def list_submodules(mod_fname: str) -> list[ModuleType]:
     num_mod = len(all_mod)
     mod_order = [getattr(mod, "__module_order__", num_mod) for mod in all_mod]
     sort_data = zip(zip(mod_order, submod_fnames), all_mod)
-    all_mod = [mod for _, mod in sorted(sort_data)]
+    all_mod = [mod for __, mod in sorted(sort_data)]
 
     return all_mod
 
@@ -171,7 +174,8 @@ def process_rst_args(doc: str, func: Callable) -> str:
 
         if sig.return_annotation is not _empty:
             ret_type = str(sig.return_annotation)
-            ret_type = ret_type.lstrip("<class '").rstrip("'>")
+            ret_type = re.sub(r"^<class '", "", ret_type)
+            ret_type = re.sub(r"'>$", "", ret_type)
             sig_str += f" -> {ret_type}\n"
         else:
             sig_str += "\n"
@@ -190,9 +194,8 @@ def process_rst_args(doc: str, func: Callable) -> str:
             arg_name = d.get("name", "")
             arg_type = d.get("type", "")
 
-            global i18n
-            i18n_return = i18n.gettext("RETURN")
-            i18n_raise = i18n.gettext("RAISE")
+            i18n_return = _("RETURN")
+            i18n_raise = _("RAISE")
 
             field_type = d.get("field_type", "")
             if field_type == "param":
@@ -230,9 +233,9 @@ def calc_eastasian_width(txt: str) -> int:
 
 def generate_site(
         mod_fname: str,
+        locale: str = "en_US",
+        sidebar_width: str = "350px",
         prefix: Optional[str] = None,
-        locale: Optional[str] = None,
-        sidebar_width: Optional[str] = None,
 ):
     """Generate Quarto website project
 
@@ -241,15 +244,9 @@ def generate_site(
     :param Optional[str] locale: locale. default to "en_US"
     :param Optional[str] sidebar_width: sidebar width. default to "350px"
     """
-    if locale is None:
-        locale = "en_US"
-    localedir = Path(os.path.dirname(os.path.abspath(__file__))) / "locales"
-
-    global i18n
+    global i18n, _
     i18n = translation("messages", localedir=localedir, languages=[locale])
-
-    if sidebar_width is None:
-        sidebar_width = "350px"
+    _ = i18n.gettext
 
     if prefix is None:
         prefix = f"{mod_fname}_api"
@@ -314,10 +311,10 @@ def generate_site(
 
             # append function list
             if len(all_funcs) > 0:
-                i18n_function_list = i18n.gettext("function list")
+                i18n_function_list = _("function list")
                 f_mod.write(f"\n\n### {i18n_function_list}\n\n")
-                i18n_function_name = i18n.gettext("function name")
-                i18n_function_comment = i18n.gettext("function comment")
+                i18n_function_name = _("function name")
+                i18n_function_comment = _("function comment")
                 f_mod.write(
                     f"| {i18n_function_name:{max_fname}} "
                     f"| {i18n_function_comment:{max_fshortdoc}} |\n"
@@ -326,7 +323,7 @@ def generate_site(
                     f"|:{'-' * max_fname}-"
                     f"|:{'-' * max_fshortdoc}-|\n"
                 )
-                for _, fname, fshortdoc in all_funcs:
+                for __, fname, fshortdoc in all_funcs:
                     len_sp = max_fshortdoc - calc_eastasian_width(fshortdoc)
                     f_mod.write(
                         f"| {'`' + fname + '`':{max_fname}} "
@@ -338,7 +335,7 @@ def generate_site(
         doc_quarto = container.get("doc_quarto", "")
 
         mod_doc_indent = " " * 4 * len_mod_name
-        i18n_module_doc = i18n.gettext("MODULE DOC")
+        i18n_module_doc = _("MODULE DOC")
         mod_doc = indent(dedent(f"""
         - section: "{mod_name}"
           contents:
@@ -349,7 +346,7 @@ def generate_site(
 
         if len(all_funcs) > 0:
             func_sect_indent = mod_doc_indent + " " * 4
-            i18n_functions = i18n.gettext("FUNCTIONS")
+            i18n_functions = _("FUNCTIONS")
             func_doc = indent(dedent(f"""
             - section: "{i18n_functions}"
               contents:"""), func_sect_indent)
