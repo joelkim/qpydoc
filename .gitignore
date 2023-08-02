@@ -175,3 +175,7 @@ index_files/
 *.tex
 *.toc
 *.vrb
+
+# documentation
+docs/
+?_*.sh

@@ -1,4 +1,6 @@
+"""`qpydoc` is a python package for API documenation using Quarto.
 
+"""
 __all__ = [
     "__version__",
     "list_submodules",
@@ -10,7 +12,6 @@ __all__ = [
 import argparse
 import importlib
 import os
-import re
 import shutil
 from copy import copy
 from functools import partial
@@ -24,6 +25,7 @@ from types import ModuleType
 from typing import Any, Callable, Optional, get_origin
 from unicodedata import east_asian_width
 
+import regex as re
 from autopep8 import fix_code
 from mypy_extensions import KwArg
 
@@ -205,7 +207,7 @@ def process_rst_args(doc: str, func: Callable) -> str:
 
     # process spaces in Literal brackets
     pattern_typehint = re.compile(
-        r"(list|tuple|Literal|Union|Optional)\[.*?\]",
+        r"(list|tuple|Literal|Union|Optional)?\[(?:[^\[\]]|(?R))*\]",
         flags=re.M,
     )
     processed_doc = pattern_typehint.sub(
@@ -320,7 +322,7 @@ def generate_site(
 
     path_prefix = Path(prefix)
     if not os.path.exists(path_prefix):
-        os.mkdir(path_prefix)
+        os.makedirs(path_prefix)
 
     if favicon is not None:
         if not os.path.exists(favicon) or \
