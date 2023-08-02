@@ -27,6 +27,9 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[project.scripts]
+qpydoc = "qpydoc:cli"
+
 [tool.setuptools.packages.find]
 where = ["."]
 

@@ -4,8 +4,10 @@ __all__ = [
     "list_submodules",
     "walk_submodules",
     "generate_site",
+    "cli",
 ]
 
+import argparse
 import importlib
 import os
 import re
@@ -289,8 +291,8 @@ def calc_eastasian_width(txt: str) -> int:
 
 def generate_site(
         mod_fname: str,
-        locale: str = "en_US",
-        sidebar_width: str = "350px",
+        locale: Optional[str] = None,
+        sidebar_width: Optional[str] = None,
         prefix: Optional[str] = None,
 ):
     """Generate Quarto website project
@@ -300,9 +302,15 @@ def generate_site(
     :param Optional[str] locale: locale. default to "en_US"
     :param Optional[str] sidebar_width: sidebar width. default to "350px"
     """
+    if locale is None:
+        locale = "en_US"
+
     global i18n, _
     i18n = translation("messages", localedir=localedir, languages=[locale])
     _ = i18n.gettext
+
+    if sidebar_width is None:
+        sidebar_width = "350px"
 
     if prefix is None:
         prefix = f"{mod_fname}_api"
@@ -433,6 +441,10 @@ def generate_site(
                         doc = process_doctest(doc)
                         doc = process_module_link(doc, mod)
                         doc = process_rst_args(doc, func)
+
+                        # add a dummy code to fix Quarto bug (title w/wo code cell)
+                        doc += "\n\n```{python}\n#| echo: false\n```\n\n"
+
                         f_func.write(doc)
 
             container["doc_quarto"] = container["doc_quarto"] + func_doc
@@ -471,3 +483,39 @@ def generate_site(
 
     with open(path_prefix / "_quarto.yml", "w") as f:
         f.writelines(container["doc_quarto"])
+
+
+def cli():
+    """Command-line entry point"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "package",
+        type=str,
+        help="Python package name",
+    )
+    parser.add_argument(
+        "-l",
+        "--locale",
+        type=str,
+        help="locale. support en_US, ko_KR",
+    )
+    parser.add_argument(
+        "-s",
+        "--sidebar",
+        type=str,
+        help="sidebar width",
+    )
+    parser.add_argument(
+        "-p",
+        "--prefix",
+        type=str,
+        help="prefix directory",
+    )
+    opts = parser.parse_args()
+
+    generate_site(
+        mod_fname=opts.package,
+        locale=opts.locale,
+        sidebar_width=opts.sidebar,
+        prefix=opts.prefix,
+    )
