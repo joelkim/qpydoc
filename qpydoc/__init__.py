@@ -503,7 +503,26 @@ def generate_site(
 
 
 def cli():
-    """Command-line entry point"""
+    """Command-line entry point
+
+    $ qpydoc -h
+    usage: qpydoc [-h] [-l LOCALE] [-s SIDEBAR] [-p PREFIX] [-f FAVICON] package
+
+    positional arguments:
+    package               Python package name
+
+    options:
+    -h, --help            show this help message and exit
+    -l LOCALE, --locale LOCALE
+                          locale. support en_US, ko_KR
+    -s SIDEBAR, --sidebar SIDEBAR
+                          sidebar width
+    -p PREFIX, --prefix PREFIX
+                          prefix directory
+    -f FAVICON, --favicon FAVICON
+                          favicon file
+
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "package",
