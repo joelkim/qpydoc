@@ -11,6 +11,7 @@ import argparse
 import importlib
 import os
 import re
+import shutil
 from copy import copy
 from functools import partial
 from gettext import translation
@@ -294,6 +295,7 @@ def generate_site(
         locale: Optional[str] = None,
         sidebar_width: Optional[str] = None,
         prefix: Optional[str] = None,
+        favicon: Optional[str] = None,
 ):
     """Generate Quarto website project
 
@@ -301,6 +303,7 @@ def generate_site(
     :param Optional[str] prefix: project directory name. default to f"{mod_fname}_api"
     :param Optional[str] locale: locale. default to "en_US"
     :param Optional[str] sidebar_width: sidebar width. default to "350px"
+    :param Optional[str] favicon: favicon path
     """
     if locale is None:
         locale = "en_US"
@@ -318,6 +321,13 @@ def generate_site(
     path_prefix = Path(prefix)
     if not os.path.exists(path_prefix):
         os.mkdir(path_prefix)
+
+    if favicon is not None:
+        if not os.path.exists(favicon) or \
+                not os.path.isfile(favicon) or \
+                favicon.split(".")[-1] != "ico":
+            raise ValueError(f"favicon path error: {favicon}")
+        shutil.copy(favicon, path_prefix / "favicon.ico")
 
     def on_mod(mod: ModuleType, **kwarg: Any):
         mod_name = mod.__name__
@@ -474,6 +484,7 @@ def generate_site(
                 }}
             </style>
     website:
+      favicon: favicon.ico
       sidebar:
         contents:""")
 
@@ -515,6 +526,12 @@ def cli():
         type=str,
         help="prefix directory",
     )
+    parser.add_argument(
+        "-f",
+        "--favicon",
+        type=str,
+        help="favicon file",
+    )
     opts = parser.parse_args()
 
     generate_site(
@@ -522,4 +539,5 @@ def cli():
         locale=opts.locale,
         sidebar_width=opts.sidebar,
         prefix=opts.prefix,
+        favicon=opts.favicon,
     )
