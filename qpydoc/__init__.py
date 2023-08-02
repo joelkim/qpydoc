@@ -8,13 +8,14 @@ __all__ = [
 
 import importlib
 import os
-import pkgutil
 import re
 from copy import copy
+from functools import partial
 from gettext import translation
 from importlib.metadata import version
 from inspect import _empty, cleandoc, signature
 from pathlib import Path
+from pkgutil import iter_modules, resolve_name
 from textwrap import dedent, indent
 from types import ModuleType
 from typing import Any, Callable, Optional
@@ -37,9 +38,9 @@ def list_submodules(mod_fname: str) -> list[ModuleType]:
     :param str mod_fname: full name string of parent module
     :return list[ModuleType]: list of submodules
     """
-    mod = pkgutil.resolve_name(mod_fname)
+    mod = resolve_name(mod_fname)
     mod_path = os.path.dirname(mod.__file__)
-    mod_info = pkgutil.iter_modules([mod_path], prefix=f"{mod_fname}.")
+    mod_info = iter_modules([mod_path], prefix=f"{mod_fname}.")
 
     submod_fnames = [mi.name for mi in mod_info]
 
@@ -96,7 +97,7 @@ def walk_submodules(
         callback for a child submodule
     :param Any **kwarg: keyword arguments of on_mod and on_submod callbacks
     """
-    mod = pkgutil.resolve_name(mod_fname)
+    mod = resolve_name(mod_fname)
     if on_mod is not None:
         on_mod(mod, **kwarg)  # type: ignore
 
@@ -112,7 +113,54 @@ def walk_submodules(
     module_tree.append((mod, sub_walkdata))
 
 
+def process_module_link(doc: str, mod: ModuleType) -> str:
+    """add link to module string in docstring
+
+    :param str doc: docstring
+    :return str: converted docstring
+    """
+    processed_doc = copy(doc)
+
+    pkg_name = mod.__name__.split(".")[0]
+    pattern_code = re.compile(
+        r"(^\s*```.*?```)", flags=re.M | re.DOTALL)
+    pattern_module = re.compile(
+        rf"[\*`~]*(?P<name>{pkg_name}(\.\S+)*)[\*`~]*", flags=re.M)
+
+    def repl(m, mod):
+        cur_mod_name = mod.__name__
+        cur_mod_name_list = cur_mod_name.split(".")
+        cur_level = len(cur_mod_name_list)
+
+        tgt_mod_name = m.group()
+        tgt_mod_name_list = tgt_mod_name.split(".")
+        tgt_level = len(tgt_mod_name_list)
+
+        if cur_level > tgt_level:
+            middle = "../" * (cur_level - tgt_level)
+        else:
+            middle = "../" * (cur_level - 1)
+            middle += "/".join(tgt_mod_name_list[1:]) + "/"
+
+        return f"[{tgt_mod_name}](./{middle}index.qmd)"
+
+    doc_list = pattern_code.split(doc)
+    for i, subdoc in enumerate(doc_list):
+        if not pattern_code.search(subdoc):
+            doc_list[i] = pattern_module.sub(
+                partial(repl, mod=mod), subdoc)
+
+    processed_doc = "".join(doc_list)
+
+    return processed_doc
+
+
 def process_doctest(doc: str) -> str:
+    """convert doctest-format code in docstring into markdown
+
+    :param str doc: docstring
+    :return str: converted docstring
+    """
     processed_doc = copy(doc)
 
     pattern_doctest = re.compile(
@@ -145,6 +193,11 @@ def process_doctest(doc: str) -> str:
 
 
 def process_rst_args(doc: str, func: Callable) -> str:
+    """convert restructuredtext format function description to markdown
+
+    :param str doc: docstring
+    :return str: converted docstring
+    """
     processed_doc = copy(doc)
 
     # process spaces in Literal brackets
@@ -286,7 +339,7 @@ def generate_site(
 
                 all_funcs.append((func, fname, fshortdoc))
 
-        max_fname += 2
+        max_fname += 19
 
         # create index file
         mod_filename = "index.qmd"
@@ -307,6 +360,7 @@ def generate_site(
             if mod.__doc__ is not None:
                 doc = cleandoc(mod.__doc__)
                 doc = process_doctest(doc)
+                doc = process_module_link(doc, mod)
                 f_mod.write(doc)
 
             # append function list
@@ -315,18 +369,22 @@ def generate_site(
                 f_mod.write(f"\n\n### {i18n_function_list}\n\n")
                 i18n_function_name = _("function name")
                 i18n_function_comment = _("function comment")
+                len_sp1 = max_fname - calc_eastasian_width(i18n_function_name)
+                len_sp2 = max_fshortdoc - \
+                    calc_eastasian_width(i18n_function_comment)
                 f_mod.write(
-                    f"| {i18n_function_name:{max_fname}} "
-                    f"| {i18n_function_comment:{max_fshortdoc}} |\n"
+                    f"| {i18n_function_name + ' ' * len_sp1} "
+                    f"| {i18n_function_comment + ' ' * len_sp2} |\n"
                 )
                 f_mod.write(
                     f"|:{'-' * max_fname}-"
                     f"|:{'-' * max_fshortdoc}-|\n"
                 )
-                for __, fname, fshortdoc in all_funcs:
+                for func, fname, fshortdoc in all_funcs:
+                    fname_link = f"[`{fname}`](./{fname}.qmd)"
                     len_sp = max_fshortdoc - calc_eastasian_width(fshortdoc)
                     f_mod.write(
-                        f"| {'`' + fname + '`':{max_fname}} "
+                        f"| {fname_link:{max_fname}} "
                         f"| {fshortdoc + ' ' * len_sp} |\n"
                     )
                 f_mod.write("\n")
@@ -363,13 +421,14 @@ def generate_site(
 
                 with open(func_filepath, "w") as f_func:
                     # set function title
-                    func_title = mod_title + f".[{fname}](./{func_filename})"
+                    func_title = f"[{fname}](./{func_filename})"
                     f_func.write(f"# {func_title}\n\n")
 
                     # set function content
                     if func.__doc__ is not None:
                         doc = cleandoc(func.__doc__)
                         doc = process_doctest(doc)
+                        doc = process_module_link(doc, mod)
                         doc = process_rst_args(doc, func)
                         f_func.write(doc)
 
@@ -391,7 +450,7 @@ def generate_site(
                 main.content h1 {{
                     word-wrap: break-word;
                 }}
-                main.content h1 a {{
+                a {{
                     text-decoration: none;
                 }}
             </style>
