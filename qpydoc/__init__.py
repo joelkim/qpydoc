@@ -18,7 +18,7 @@ from pathlib import Path
 from pkgutil import iter_modules, resolve_name
 from textwrap import dedent, indent
 from types import ModuleType
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, get_origin
 from unicodedata import east_asian_width
 
 from autopep8 import fix_code
@@ -201,11 +201,14 @@ def process_rst_args(doc: str, func: Callable) -> str:
     processed_doc = copy(doc)
 
     # process spaces in Literal brackets
-    m = re.search(r"(list|tuple|Literal|Union|Optional)\[.*?\]", processed_doc)
-    if m is not None:
-        org_str = m.group()
-        rep_str = org_str.replace(" ", "")
-        processed_doc = processed_doc.replace(org_str, rep_str)
+    pattern_typehint = re.compile(
+        r"(list|tuple|Literal|Union|Optional)\[.*?\]",
+        flags=re.M,
+    )
+    processed_doc = pattern_typehint.sub(
+        lambda m: m.group().replace(" ", ""),
+        processed_doc,
+    )
 
     # prcess params
     m = re.search(
@@ -326,7 +329,7 @@ def generate_site(
         all_funcs = []
         for fname in getattr(mod, "__all__", []):
             func = getattr(mod, fname, None)
-            if callable(func):
+            if callable(func) and get_origin(func) is None:
                 fdocs = getattr(func, "__doc__")
                 if fdocs is None:
                     fshortdoc = fname
