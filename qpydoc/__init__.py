@@ -351,7 +351,7 @@ def generate_site(
         all_funcs = []
         for fname in getattr(mod, "__all__", []):
             func = getattr(mod, fname, None)
-            if callable(func) and get_origin(func) is None:
+            if callable(func):
                 fdocs = getattr(func, "__doc__")
                 if fdocs is None:
                     fshortdoc = fname
