@@ -489,8 +489,17 @@ def generate_site(
                 main.content h1 {{
                     word-wrap: break-word;
                 }}
+
                 a {{
                     text-decoration: none;
+                }}
+
+                main.content section div.cell-output table thead tr th {{
+                text-align: center;
+                }}
+
+                main.content section div.cell-output table tbody tr td {{
+                text-align: right;
                 }}
             </style>
     website:
