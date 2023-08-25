@@ -307,8 +307,15 @@ def generate_site(
     :param Optional[str] sidebar_width: sidebar width. default to "350px"
     :param Optional[str] favicon: favicon path
     """
-    preamble = dedent(f'\n---\ntitle: "{pkg_name} API document"\n---\n')
+    # check version
+    try:
+        mod = resolve_name("kquant")
+        version_str = f" ({mod.__version__})"
+    except Exception:
+        version_str = ""
 
+    preamble = dedent(
+        f'\n---\ntitle: "{pkg_name} API document {version_str}"\n---\n')
     if locale is None:
         locale = "en_US"
 
