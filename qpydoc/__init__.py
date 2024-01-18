@@ -63,6 +63,7 @@ def list_submodules(mod_fname: str) -> list[ModuleType]:
     # filter out modules which starts with '_'
     def no_underscore(x):
         return not x.split(".")[-1].startswith("_")
+
     submod_fnames = list(filter(no_underscore, submod_fnames))
 
     # get all modules
@@ -86,11 +87,11 @@ def list_submodules(mod_fname: str) -> list[ModuleType]:
 def walk_submodules(
     mod_fname: str,
     module_tree: list[Any] = [],
-    on_mod: Optional[
-        Callable[[ModuleType, KwArg()], None]] = None,  # type: ignore
+    on_mod: Optional[Callable[[ModuleType, KwArg()], None]] = None,  # type: ignore
     on_submod: Optional[
-        Callable[[ModuleType, ModuleType, KwArg()], None]] = None,  # type: ignore
-    **kwarg: Any
+        Callable[[ModuleType, ModuleType, KwArg()], None]
+    ] = None,  # type: ignore
+    **kwarg: Any,
 ):
     """Yield ModuleInfo for all modules recursively
 
@@ -127,10 +128,10 @@ def process_module_link(doc: str, mod: ModuleType) -> str:
     processed_doc = copy(doc)
 
     pkg_name = mod.__name__.split(".")[0]
-    pattern_code = re.compile(
-        r"(^\s*```.*?```)", flags=re.M | re.DOTALL)
+    pattern_code = re.compile(r"(^\s*```.*?```)", flags=re.M | re.DOTALL)
     pattern_module = re.compile(
-        rf"[\*`~]*(?P<name>{pkg_name}(\.\S+)*)[\*`~]*", flags=re.M)
+        rf"[\*`~]*(?P<name>{pkg_name}(\.\S+)*)[\*`~]*", flags=re.M
+    )
 
     def repl(m, mod):
         cur_mod_name = mod.__name__
@@ -152,8 +153,7 @@ def process_module_link(doc: str, mod: ModuleType) -> str:
     doc_list = pattern_code.split(doc)
     for i, subdoc in enumerate(doc_list):
         if not pattern_code.search(subdoc):
-            doc_list[i] = pattern_module.sub(
-                partial(repl, mod=mod), subdoc)
+            doc_list[i] = pattern_module.sub(partial(repl, mod=mod), subdoc)
 
     processed_doc = "".join(doc_list)
 
@@ -171,7 +171,8 @@ def process_doctest(doc: str) -> str:
     pattern_doctest = re.compile(
         r"(?P<code>^(?P<indent>[ \t]*)>>> \S+.*(\n(?P=indent)\.\.\.\s+.*$)*)"
         r"(?P<output>(\n(?P=indent)(?!>>>)+.*$|\n(?!\n\n))*)",
-        flags=re.MULTILINE)
+        flags=re.MULTILINE,
+    )
 
     for m in pattern_doctest.finditer(processed_doc):
         if not processed_doc.endswith("\n"):
@@ -190,8 +191,9 @@ def process_doctest(doc: str) -> str:
         code_str = org_code.replace(">>> ", "").replace("... ", "")
 
         # convert to fenced code
-        fenced_code = indent_str + \
-            "```{python}\n" + code_str + indent_str + "```" + "\n"
+        fenced_code = (
+            indent_str + "```{python}\n" + code_str + indent_str + "```" + "\n"
+        )
         processed_doc = processed_doc.replace(org_code, fenced_code)
 
     return processed_doc
@@ -217,8 +219,7 @@ def process_rst_args(doc: str, func: Callable) -> str:
 
     # prcess params
     m = re.search(
-        r"^[ \t]*:(param|return|raises)\s+.*:",
-        processed_doc, flags=re.MULTILINE
+        r"^[ \t]*:(param|return|raises)\s+.*:", processed_doc, flags=re.MULTILINE
     )
 
     if m is not None:
@@ -243,10 +244,9 @@ def process_rst_args(doc: str, func: Callable) -> str:
 
         sig_str = fix_code(sig_str)
         idx = m.start()
-        processed_doc = \
-            processed_doc[:idx] + \
-            f"\n```python\n{sig_str}```\n" + \
-            processed_doc[idx:]
+        processed_doc = (
+            processed_doc[:idx] + f"\n```python\n{sig_str}```\n" + processed_doc[idx:]
+        )
 
         def repl(m):
             d = m.groupdict()
@@ -272,7 +272,10 @@ def process_rst_args(doc: str, func: Callable) -> str:
             r"^(?P<indent>[ \t]*):"
             r"(?P<field_type>param|return|raises)\s+"
             r"(?P<type>\S+)(\s+(?P<name>\S+))?:(?P<comment>.*)$",
-            repl, processed_doc, flags=re.MULTILINE)
+            repl,
+            processed_doc,
+            flags=re.MULTILINE,
+        )
 
     return processed_doc
 
@@ -293,11 +296,11 @@ def calc_eastasian_width(txt: str) -> int:
 
 
 def generate_site(
-        pkg_name: str,
-        locale: Optional[str] = None,
-        sidebar_width: Optional[str] = None,
-        prefix: Optional[str] = None,
-        favicon: Optional[str] = None,
+    pkg_name: str,
+    locale: Optional[str] = None,
+    sidebar_width: Optional[str] = None,
+    prefix: Optional[str] = None,
+    favicon: Optional[str] = None,
 ):
     """Generate Quarto website project
 
@@ -314,8 +317,7 @@ def generate_site(
     except Exception:
         version_str = ""
 
-    preamble = dedent(
-        f'\n---\ntitle: "{pkg_name} API document {version_str}"\n---\n')
+    preamble = dedent(f'\n---\ntitle: "{pkg_name} API document {version_str}"\n---\n')
     if locale is None:
         locale = "en_US"
 
@@ -334,9 +336,11 @@ def generate_site(
         os.makedirs(path_prefix)
 
     if favicon is not None:
-        if not os.path.exists(favicon) or \
-                not os.path.isfile(favicon) or \
-                favicon.split(".")[-1] != "ico":
+        if (
+            not os.path.exists(favicon)
+            or not os.path.isfile(favicon)
+            or favicon.split(".")[-1] != "ico"
+        ):
             raise ValueError(f"favicon path error: {favicon}")
         shutil.copy(favicon, path_prefix / "favicon.ico")
 
@@ -409,16 +413,12 @@ def generate_site(
                 i18n_function_name = _("function name")
                 i18n_function_comment = _("function comment")
                 len_sp1 = max_fname - calc_eastasian_width(i18n_function_name)
-                len_sp2 = max_fshortdoc - \
-                    calc_eastasian_width(i18n_function_comment)
+                len_sp2 = max_fshortdoc - calc_eastasian_width(i18n_function_comment)
                 f_mod.write(
                     f"| {i18n_function_name + ' ' * len_sp1} "
                     f"| {i18n_function_comment + ' ' * len_sp2} |\n"
                 )
-                f_mod.write(
-                    f"|:{'-' * max_fname}-"
-                    f"|:{'-' * max_fshortdoc}-|\n"
-                )
+                f_mod.write(f"|:{'-' * max_fname}-" f"|:{'-' * max_fshortdoc}-|\n")
                 for func, fname, fshortdoc in all_funcs:
                     fname_link = f"[`{fname}`](./{fname}.qmd)"
                     len_sp = max_fshortdoc - calc_eastasian_width(fshortdoc)
@@ -433,20 +433,30 @@ def generate_site(
 
         mod_doc_indent = " " * 4 * len_mod_name
         i18n_module_doc = _("MODULE DOC")
-        mod_doc = indent(dedent(f"""
+        mod_doc = indent(
+            dedent(
+                f"""
         - section: "{mod_name}"
           contents:
             - text: "{i18n_module_doc}"
-              href: {mod_filepath_wo_prefix}"""), mod_doc_indent)
+              href: {mod_filepath_wo_prefix}"""
+            ),
+            mod_doc_indent,
+        )
 
         container["doc_quarto"] = doc_quarto + mod_doc
 
         if len(all_funcs) > 0:
             func_sect_indent = mod_doc_indent + " " * 4
             i18n_functions = _("FUNCTIONS")
-            func_doc = indent(dedent(f"""
+            func_doc = indent(
+                dedent(
+                    f"""
             - section: "{i18n_functions}"
-              contents:"""), func_sect_indent)
+              contents:"""
+                ),
+                func_sect_indent,
+            )
 
             for func, fname, fshortdoc in all_funcs:
                 func_filename = f"{fname}.qmd"
@@ -454,9 +464,14 @@ def generate_site(
                 func_filepath_wo_prefix = mod_path / func_filename
 
                 func_indent = func_sect_indent + " " * 2
-                func_doc += indent(dedent(f"""
+                func_doc += indent(
+                    dedent(
+                        f"""
                 - text: {fname}
-                  href: {func_filepath_wo_prefix}"""), func_indent)
+                  href: {func_filepath_wo_prefix}"""
+                    ),
+                    func_indent,
+                )
 
                 with open(func_filepath, "w") as f_func:
                     # set preamble
@@ -481,7 +496,8 @@ def generate_site(
             container["doc_quarto"] = container["doc_quarto"] + func_doc
 
     # create _quarto content
-    doc_quarto = dedent(f"""
+    doc_quarto = dedent(
+        f"""
     project:
       type: website
     execute:
@@ -512,7 +528,8 @@ def generate_site(
     website:
       favicon: favicon.ico
       sidebar:
-        contents:""")
+        contents:"""
+    )
 
     container = {"doc_quarto": doc_quarto}
     walk_submodules(
