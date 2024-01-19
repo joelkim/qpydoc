@@ -130,7 +130,7 @@ def process_module_link(doc: str, mod: ModuleType) -> str:
     pkg_name = mod.__name__.split(".")[0]
     pattern_code = re.compile(r"(^\s*```.*?```)", flags=re.M | re.DOTALL)
     pattern_module = re.compile(
-        rf"[\*`~]*(?P<name>{pkg_name}(\.\S+)*)[\*`~]*", flags=re.M
+        rf"[`]?(?<!\.)(?P<name>{pkg_name}(\.[^`\s]+)*)[`]?", flags=re.M
     )
 
     def repl(m, mod):
@@ -138,17 +138,24 @@ def process_module_link(doc: str, mod: ModuleType) -> str:
         cur_mod_name_list = cur_mod_name.split(".")
         cur_level = len(cur_mod_name_list)
 
-        tgt_mod_name = m.group()
+        tgt_mod_name = m.groupdict().get("name")
+        tgt_mod_name_full = m.group()
+        start_quote = "`" if tgt_mod_name_full.startswith("`") else ""
+        end_quote = "`" if tgt_mod_name_full.endswith("`") else ""
+
         tgt_mod_name_list = tgt_mod_name.split(".")
         tgt_level = len(tgt_mod_name_list)
 
-        if cur_level > tgt_level:
-            middle = "../" * (cur_level - tgt_level)
+        if tgt_level == 1:
+            middle = ""
         else:
-            middle = "../" * (cur_level - 1)
-            middle += "/".join(tgt_mod_name_list[1:]) + "/"
+            if cur_level > tgt_level:
+                middle = "../" * (cur_level - tgt_level)
+            else:
+                middle = "../" * (cur_level - 1)
+                middle += "/".join(tgt_mod_name_list[1:]) + "/"
 
-        return f"[{tgt_mod_name}](./{middle}index.qmd)"
+        return f"[{start_quote + tgt_mod_name + end_quote}](./{middle}index.qmd)"
 
     doc_list = pattern_code.split(doc)
     for i, subdoc in enumerate(doc_list):
