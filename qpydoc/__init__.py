@@ -319,7 +319,7 @@ def generate_site(
     """
     # check version
     try:
-        mod = resolve_name("kquant")
+        mod = resolve_name(pkg_name)
         version_str = f" ({mod.__version__})"
     except Exception:
         version_str = ""
