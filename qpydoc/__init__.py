@@ -1,6 +1,7 @@
 """`qpydoc` is a python package for API documenation using Quarto.
 
 """
+
 __all__ = [
     "__version__",
     "list_submodules",
@@ -509,6 +510,7 @@ def generate_site(
       type: website
     execute:
       echo: true
+      cache: true
     format:
       html:
         grid:
