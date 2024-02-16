@@ -131,7 +131,7 @@ def process_module_link(doc: str, mod: ModuleType) -> str:
     pkg_name = mod.__name__.split(".")[0]
     pattern_code = re.compile(r"(^\s*```.*?```)", flags=re.M | re.DOTALL)
     pattern_module = re.compile(
-        rf"[`]?(?<!\.)(?P<name>{pkg_name}(\.[^`\s]+)*)[`]?", flags=re.M
+        rf"[`]?(?<![.\\].*)(?P<name>{pkg_name}(\.[^`\s]+)*)[`]?", flags=re.M
     )
 
     def repl(m, mod):
