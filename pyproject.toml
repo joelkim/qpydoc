@@ -17,6 +17,7 @@ classifiers = [
 ]
 dependencies = [
   "regex",
+  "jupyter-cache",
 ]
 
 dynamic = ["version"]
