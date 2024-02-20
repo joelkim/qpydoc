@@ -1,0 +1,61 @@
+[
+  {
+    "objectID": "generate_site.html",
+    "href": "generate_site.html",
+    "title": "qpydoc API document (0.1.2)",
+    "section": "",
+    "text": "generate_site\nGenerate Quarto website project\ngenerate_site(\n    pkg_name: str,\n    locale: Optional[str]=None,\n    sidebar_width: Optional[str]=None,\n    prefix: Optional[str]=None,\n    favicon: Optional[str]=None,\n)\n\npkg_name (str): package name\nprefix (Optional[str]): project directory name. default to f”{pkg_name}_api”\nlocale (Optional[str]): locale. default to “en_US”\nsidebar_width (Optional[str]): sidebar width. default to “350px”\nfavicon (Optional[str]): favicon path",
+    "crumbs": [
+      "qpydoc",
+      "FUNCTIONS",
+      "generate_site"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "qpydoc API document (0.1.2)",
+    "section": "",
+    "text": "qpydoc\nqpydoc is a python package for API documenation using Quarto.\n\nfunction list\n\n\n\nfunction name\nfunction comment\n\n\n\n\nlist_submodules\nYield a list of submodule ModuleInfo\n\n\nwalk_submodules\nYield ModuleInfo for all modules recursively\n\n\ngenerate_site\nGenerate Quarto website project\n\n\ncli\nCommand-line entry point",
+    "crumbs": [
+      "qpydoc",
+      "MODULE DOC"
+    ]
+  },
+  {
+    "objectID": "cli.html",
+    "href": "cli.html",
+    "title": "qpydoc API document (0.1.2)",
+    "section": "",
+    "text": "cli\nCommand-line entry point\n$ qpydoc -h\nusage: qpydoc [-h] [-lLOCALE] [-sSIDEBAR] [-pPREFIX] [-fFAVICON] package\n\npositional arguments:\npackage               Python package name\n\noptions:\n-h, --help            show this help message and exit\n-l LOCALE, --locale LOCALE\n                      locale. support en_US, ko_KR\n-s SIDEBAR, --sidebar SIDEBAR\n                      sidebar width\n-p PREFIX, --prefix PREFIX\n                      prefix directory\n-f FAVICON, --favicon FAVICON\n                      favicon file",
+    "crumbs": [
+      "qpydoc",
+      "FUNCTIONS",
+      "cli"
+    ]
+  },
+  {
+    "objectID": "walk_submodules.html",
+    "href": "walk_submodules.html",
+    "title": "qpydoc API document (0.1.2)",
+    "section": "",
+    "text": "walk_submodules\nYield ModuleInfo for all modules recursively\nwalk_submodules(\n    mod_fname: str,\n    module_tree: list[typing.Any]=[],\n    on_mod: Optional[Callable[[module, Any], NoneType]]=None,\n    on_submod: Optional[Callable[[module, module, Any], NoneType]]=None,\n    **kwarg: Any,\n)\n\nmod_fname (str): full name string of parent module\nmodule_tree (list[Any]): list to collect module tree data\non_mod (Optional[Callable[[ModuleType, KwArg()], None]]]): callback for a parent module\non_submod (Optional[Callable[[ModuleType, ModuleType, KwArg()], None]]]): callback for a child submodule\n**kwarg (Any): keyword arguments of on_mod and on_submod callbacks",
+    "crumbs": [
+      "qpydoc",
+      "FUNCTIONS",
+      "walk_submodules"
+    ]
+  },
+  {
+    "objectID": "list_submodules.html",
+    "href": "list_submodules.html",
+    "title": "qpydoc API document (0.1.2)",
+    "section": "",
+    "text": "list_submodules\nYield a list of submodule ModuleInfo\nlist_submodules(\n    mod_fname: str,\n) -&gt; list[module]\n\nmod_fname (str): full name string of parent module\nRETURN (list[ModuleType]): list of submodules",
+    "crumbs": [
+      "qpydoc",
+      "FUNCTIONS",
+      "list_submodules"
+    ]
+  }
+]
