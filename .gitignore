@@ -178,7 +178,6 @@ index_files/
 
 # documentation
 docs/
-?_*.sh
 
 # Temp
 temp/
